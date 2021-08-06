@@ -30,7 +30,7 @@ styleT = ParagraphStyle(
     fontSize=14
 )
 document_name = "MBTA Tunnel Vent and System Assessment.pdf"
-cs_colors = [colors.lightgreen, colors.yellow, colors.orange, colors.pink]
+cs_colors = [colors.pink, colors.orange, colors.yellow, colors.lightgreen, colors.green]
 
 for orientation in ExifTags.TAGS.keys():
     if ExifTags.TAGS[orientation] == 'Orientation':
@@ -41,7 +41,7 @@ for orientation in ExifTags.TAGS.keys():
 class RotatedImage(Image):
     def draw(self):
         self.canv.rotate(-90)
-        self.canv.translate(- self.drawWidth/2 - self.drawHeight/2, self.drawWidth/2-self.drawHeight/2)
+        self.canv.translate(- self.drawWidth / 2 - self.drawHeight / 2, self.drawWidth / 2 - self.drawHeight / 2)
         Image.draw(self)
 
 
@@ -53,9 +53,9 @@ def create_equipment_table(equip):
     with PIL.Image.open(path) as img:
         exif = img._getexif()
     if exif[orientation] == 6:
-        image = RotatedImage(temp_path, width=2.5*inch, height=3*inch, kind="proportional")
+        image = RotatedImage(temp_path, width=2.5 * inch, height=3 * inch, kind="proportional")
     else:
-        image = Image(temp_path, width=2.25*inch, height=2.5*inch, kind="proportional")
+        image = Image(temp_path, width=2.25 * inch, height=2.5 * inch, kind="proportional")
 
     # infomation paragraphs
     descr_p = Paragraph(equip.descr)
@@ -69,7 +69,7 @@ def create_equipment_table(equip):
         [descr_p],
         [Paragraph('<b>SOLUTION: %s</b>' % equip.sol_title)],
         [sol_text_p],
-        ]
+    ]
     t = Table(data, style=[('ALIGN', (0, 0), (-1, 0), 'CENTER'),  # align top row centered
                            ('ALIGN', (3, 1), (-1, 1), 'CENTER'),  # align title and photo
                            # ('ALIGN', (0, 3), (0, 3), 'CENTER'),  # align solution title centered
@@ -84,7 +84,7 @@ def create_equipment_table(equip):
                            ('SPAN', (0, 3), (3, 3)),  # span sol title
                            ('SPAN', (0, 4), (3, 4)),  # span sol descr
                            ('SPAN', (-2, 1), (-1, -1)),  # span picture box
-                           ('BACKGROUND', (-1, 0), (-1, 0), cs_colors[equip.cs-1])
+                           ('BACKGROUND', (-1, 0), (-1, 0), cs_colors[equip.cs - 1])
                            ],
               colWidths=[.4 * inch, .75 * inch, 2.3 * inch, 1.25 * inch, 1.9 * inch, .6 * inch],
               rowHeights=[.25 * inch, .25 * inch, 1.25 * inch, .25 * inch, 1 * inch])
@@ -96,9 +96,33 @@ def create_report_table(loc):
     data = [
         [Paragraph('<b>RAIL LINE:</b> %s' % loc.rail),
          Paragraph('<b>INSPECTION DATE:</b> %s' % loc.insp_date)],
-        [Paragraph('<b>LOCATION:</b> %s' % loc.location)],
+        [Paragraph('<b>LOCATION:</b> %s' % loc.location),
+         Paragraph('<b>TIN NUMBER: </b> %s' % loc.tin)],
     ]
     t = Table(data)
+    return t
+
+
+def create_condition_notes_table(loc):
+    data = [
+        ["CS: 5", "Condition State 5", "", Paragraph('<b>NOTES:</b> %s' % loc.notes)],
+        ["CS: 4", "Condition State 4"],
+        ["CS: 3", "Condition State 3"],
+        ["CS: 2", "Condition State 2"],
+        ["CS: 1", "Condition State 1"],
+    ]
+    t = Table(data, style=[
+        ('VALIGN', (-1, 0), (-1, -1), 'TOP'),
+        ('BOX', (-1, 0), (-1, -1), 1, colors.black),
+        ('GRID', (0, 0), (0, -1), 1, colors.black),
+        ('SPAN', (-1, 0), (-1, -1)),  # span notes block
+        ('BACKGROUND', (0, 0), (0, 1), cs_colors[4]),
+        ('BACKGROUND', (0, 1), (0, 2), cs_colors[3]),
+        ('BACKGROUND', (0, 2), (0, 2), cs_colors[2]),
+        ('BACKGROUND', (0, 3), (0, 3), cs_colors[1]),
+        ('BACKGROUND', (0, 4), (0, 4), cs_colors[0]),
+    ],
+              colWidths=[.5 * inch, 1.25 * inch, 1.25 * inch, 3 * inch])
     return t
 
 
@@ -136,17 +160,23 @@ def build_document(sheet):
                             title="MBTA Tunnel Vent and System Assessment", author="WSP")  # start document template
     Story = []
 
+    # add location table
     t = create_report_table(sheet.location)
-    Story.append(t)  # add location information
+    Story.append(t)
+    Story.append(Spacer(1, 0.2 * inch))
+
+    # add notes and condition table
+    t = create_condition_notes_table(sheet.location)
+    Story.append(t)
     Story.append(Spacer(1, 0.2 * inch))
 
     # compress images into temp folder
     sheet.compress_pictures()
 
     for i in range(5):
-        Story.append(Paragraph(sheet.fp.sheet_names[i+1], style=styleT))
+        Story.append(Paragraph(sheet.fp.sheet_names[i + 1], style=styleT))
 
-        for row in sheet.fp.parse(i+1).itertuples():  # for row in spreadsheet
+        for row in sheet.fp.parse(i + 1).itertuples():  # for row in spreadsheet
             e = Equipment.generate_equip(sheet.folder, row)
             t = create_equipment_table(e)
 

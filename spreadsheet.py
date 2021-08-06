@@ -6,12 +6,15 @@ import glob
 import PIL.Image
 import shutil
 
+
 # Basic spreadsheet info class
 class LocationInfo:
-    def __init__(self, rail, location, insp_date):
+    def __init__(self, rail, location, insp_date, tin, notes):
         self.rail = rail
         self.location = location
         self.insp_date = insp_date.strftime("%m/%d/%Y") if isinstance(insp_date, datetime.datetime) else ""
+        self.tin = tin
+        self.notes = notes
 
 
 # Piece of equipment class
@@ -23,7 +26,7 @@ class Equipment:
         self.room = room
         self.equipment_id = equipment_id
         try:
-            self.cs = min(max(int(cs), 0), 4)
+            self.cs = min(max(int(cs), 0), 5)
         except Exception:
             self.cs = 0
         self.title = title
@@ -52,7 +55,7 @@ class Sheet:
 
         self.fp = pd.ExcelFile(path)
         loc_sheet = self.fp.parse(0)
-        self.location = LocationInfo(loc_sheet.columns[1], loc_sheet.iloc[0, 1], loc_sheet.iloc[1, 1])
+        self.location = LocationInfo(loc_sheet.columns[1], loc_sheet.iloc[0, 1], loc_sheet.iloc[1, 1], loc_sheet.iloc[2, 1], loc_sheet.iloc[3, 1])
 
     def check_pictures(self):
         missing_pics = []
