@@ -61,9 +61,11 @@ class Sheet:
         missing_pics = []
         for i in range(5):
             for row in self.fp.parse(i+1).itertuples():
-                files = glob.glob(self.folder + "/" + row[3][:1] + " (" + row[3][1:] + ")" + ".*")
+                disc = str(row[1])
+                num = "" if isinstance(row[2], float) and math.isnan(row[2]) else str(int(row[2]))
+                files = glob.glob(self.folder + "/" + disc + " (" + num + ")" + ".*")
                 if len(files) == 0:
-                    missing_pics.append(row[3])
+                    missing_pics.append(disc + num)
 
         return missing_pics
 
