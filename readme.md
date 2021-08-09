@@ -4,7 +4,7 @@ A PDF report generator made for the use of WSP.
 ## Compliation
 WOIDS must be compiled into an executable (exe) in order to be used on WSP's work computers. To make changes to the PDF, 
 you must update the Python code. Follow these steps to download the code and compile it yourself. Otherwise, skip to the 
-Program Use section
+Program Use section.
 
 ### Code
 Download WOIDS by either using Git clone (advanced), or download a zip of all the files. Unzip the folder to get started.
