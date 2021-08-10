@@ -52,7 +52,7 @@ def create_equipment_table(equip):
     # fix rotated images
     with PIL.Image.open(path) as img:
         exif = img._getexif()
-    if exif[orientation] == 6:
+    if exif is not None and exif[orientation] == 6:
         image = RotatedImage(temp_path, width=2.5 * inch, height=3 * inch, kind="proportional")
     else:
         image = Image(temp_path, width=2.25 * inch, height=2.5 * inch, kind="proportional")
