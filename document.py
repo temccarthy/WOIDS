@@ -1,6 +1,6 @@
 import glob
 from PIL import ExifTags
-from reportlab.lib import colors, utils
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, KeepTogether
@@ -32,16 +32,42 @@ styleT = ParagraphStyle(
 document_name = "MBTA Tunnel Vent and System Assessment.pdf"
 cs_colors = [colors.pink, colors.orange, colors.yellow, colors.lightgreen, colors.green]
 
-for orientation in ExifTags.TAGS.keys():
-    if ExifTags.TAGS[orientation] == 'Orientation':
+for orientation_key in ExifTags.TAGS.keys():
+    if ExifTags.TAGS[orientation_key] == 'Orientation':
         break
 
 
 # for rotating portrait photos
 class RotatedImage(Image):
+    global orientation_key
+
+    def __init__(self, orig_path, path):  # orig_path contains exif data, temp_path is compressed photo
+        with PIL.Image.open(orig_path) as img:
+            exif = img._getexif()
+            if exif is not None and orientation_key in exif:
+                self.orientation = exif[orientation_key]
+            else:
+                self.orientation = 0
+
+        super().__init__(path, width=2.5 * inch, height=2.65 * inch, kind="proportional")
+
+    # draws image with proper rotation based on orientation from exif data
     def draw(self):
-        self.canv.rotate(-90)
-        self.canv.translate(- self.drawWidth / 2 - self.drawHeight / 2, self.drawWidth / 2 - self.drawHeight / 2)
+        if self.orientation in [0, 1]:  # normal landscape/unknown rotation
+            pass
+
+        elif self.orientation in [6]:  # normal portrait, 90 degrees
+            self.canv.rotate(-90)  # note that this rotation rotates counterclockwise, so it must be negative
+            self.canv.translate(- self.drawWidth / 2 - self.drawHeight / 2, self.drawWidth / 2 - self.drawHeight / 2)
+
+        elif self.orientation in [3]:  # upside down landscape, 180 degrees
+            self.canv.rotate(180)
+            self.canv.translate(- self.drawWidth, - self.drawHeight)
+
+        elif self.orientation in [8]:  # backwards portrait, 270 degrees
+            self.canv.rotate(90)
+            self.canv.translate(- self.drawWidth / 2 + self.drawHeight / 2, - self.drawWidth / 2 - self.drawHeight / 2)
+
         Image.draw(self)
 
 
@@ -50,12 +76,7 @@ def create_equipment_table(equip):
     temp_path = path[:path.rfind("\\", 0, -1)] + "/temp/" + path[path.rfind("\\", 0, -1):]
 
     # fix rotated images
-    with PIL.Image.open(path) as img:
-        exif = img._getexif()
-    if exif[orientation] == 6:
-        image = RotatedImage(temp_path, width=2.5 * inch, height=3 * inch, kind="proportional")
-    else:
-        image = Image(temp_path, width=2.25 * inch, height=2.5 * inch, kind="proportional")
+    image = RotatedImage(path, temp_path)
 
     # infomation paragraphs
     descr_p = Paragraph(equip.descr)
@@ -146,44 +167,36 @@ def first_page_format(canvas, doc):
     canvas.restoreState()
 
 
-# # formatting for all other pages
-# def later_page_format(canvas, doc):
-#     canvas.saveState()
-#     canvas.setFont('Times-Roman',9)
-#     canvas.drawString(inch, 0.75 * inch, "Page %d" % doc.page)
-#     canvas.restoreState()
-
-
 # assembles the document and saves it to the sheet's location
 def build_document(sheet):
     doc = SimpleDocTemplate(os.path.join(sheet.folder, document_name), pageSize=letter,
                             title="MBTA Tunnel Vent and System Assessment", author="WSP")  # start document template
-    Story = []
+    story = []
 
     # add location table
     t = create_report_table(sheet.location)
-    Story.append(t)
-    Story.append(Spacer(1, 0.2 * inch))
+    story.append(t)
+    story.append(Spacer(1, 0.2 * inch))
 
     # add notes and condition table
     t = create_condition_notes_table(sheet.location)
-    Story.append(t)
-    Story.append(Spacer(1, 0.2 * inch))
+    story.append(t)
+    story.append(Spacer(1, 0.2 * inch))
 
     # compress images into temp folder
     sheet.compress_pictures()
 
     for i in range(5):
-        Story.append(Paragraph(sheet.fp.sheet_names[i + 1], style=styleT))
+        story.append(Paragraph(sheet.fp.sheet_names[i + 1], style=styleT))
 
         for row in sheet.fp.parse(i + 1).itertuples():  # for row in spreadsheet
             e = Equipment.generate_equip(sheet.folder, row)
             t = create_equipment_table(e)
 
-            Story.append(KeepTogether(t))
-            Story.append(Spacer(1, 0.1 * inch))
+            story.append(KeepTogether(t))
+            story.append(Spacer(1, 0.1 * inch))
 
-    doc.build(Story, onFirstPage=first_page_format, onLaterPages=first_page_format)
+    doc.build(story, onFirstPage=first_page_format, onLaterPages=first_page_format)
 
     # delete compressed image temp folder
     sheet.delete_compressed_pictures()
